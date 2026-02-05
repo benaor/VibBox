@@ -58,16 +58,30 @@ sudo rm -rf /var/lib/apt/lists/*
 echo "PHP version: $(php --version | head -1)"
 
 # =============================================================================
-# INSTALL COMPOSER
+# INSTALL COMPOSER (with signature verification)
 # =============================================================================
 
-echo "Installing Composer..."
+echo "Installing Composer with signature verification..."
 
-# Download and run composer installer
-curl -sS https://getcomposer.org/installer | php
+# Download installer and verify checksum (official Composer security recommendation)
+EXPECTED_CHECKSUM="$(curl -sS https://composer.github.io/installer.sig)"
+curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php
+ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', '/tmp/composer-setup.php');")"
+
+if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+    echo "ERROR: Composer installer checksum verification failed!"
+    echo "Expected: $EXPECTED_CHECKSUM"
+    echo "Actual:   $ACTUAL_CHECKSUM"
+    rm -f /tmp/composer-setup.php
+    exit 1
+fi
+
+echo "Checksum verified, installing Composer..."
+php /tmp/composer-setup.php --install-dir=/tmp --filename=composer.phar
+rm -f /tmp/composer-setup.php
 
 # Move to global location
-sudo mv composer.phar /usr/local/bin/composer
+sudo mv /tmp/composer.phar /usr/local/bin/composer
 
 # Verify composer installation
 echo "Composer version: $(composer --version 2>&1 | head -1)"

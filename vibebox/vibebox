@@ -166,8 +166,9 @@ cmd_clean() {
         1)
             read -rp "Remove project data? [y/N]: " confirm
             if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                rm -rf "$PROJECT_DATA_DIR"
-                log_ok "Project data removed: $PROJECT_DATA_DIR"
+                if safe_remove_project_data "$PROJECT_DATA_DIR"; then
+                    log_ok "Project data removed: $PROJECT_DATA_DIR"
+                fi
             else
                 log_info "Cancelled"
             fi
@@ -183,8 +184,9 @@ cmd_clean() {
         3)
             read -rp "Remove project data AND Docker image? [y/N]: " confirm
             if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                rm -rf "$PROJECT_DATA_DIR"
-                log_ok "Project data removed: $PROJECT_DATA_DIR"
+                if safe_remove_project_data "$PROJECT_DATA_DIR"; then
+                    log_ok "Project data removed: $PROJECT_DATA_DIR"
+                fi
                 remove_image
             else
                 log_info "Cancelled"
@@ -203,10 +205,32 @@ cmd_install() {
         exit 1
     fi
 
-    local packages="$*"
+    # Store packages as an array to preserve proper quoting
+    local -a packages=("$@")
     local temp_container="${CONTAINER_NAME}-install"
 
-    log_info "Installing packages: $packages"
+    # Validate each package name (Debian package naming: alphanumeric, +, -, ., starts with alnum)
+    local pkg_regex='^[a-zA-Z0-9][a-zA-Z0-9+._-]*$'
+    for pkg in "${packages[@]}"; do
+        if [[ ! "$pkg" =~ $pkg_regex ]]; then
+            log_error "Invalid package name: $pkg"
+            log_error "Package names must start with alphanumeric and contain only [a-zA-Z0-9+._-]"
+            exit 1
+        fi
+        # Length check to prevent abuse
+        if [[ ${#pkg} -gt 128 ]]; then
+            log_error "Package name too long: $pkg"
+            exit 1
+        fi
+    done
+
+    log_info "Installing packages: ${packages[*]}"
+
+    # Cleanup function
+    cleanup_install_container() {
+        docker rm -f "$temp_container" &>/dev/null || true
+    }
+    trap cleanup_install_container EXIT
 
     # Start a temporary container
     docker run -d \
@@ -214,21 +238,29 @@ cmd_install() {
         "$IMAGE_NAME" \
         sleep infinity >/dev/null
 
-    # Install packages
-    if docker exec "$temp_container" \
-        sudo apt-get update && \
-        docker exec "$temp_container" \
-        sudo apt-get install -y $packages; then
+    # Update apt index first
+    if ! docker exec "$temp_container" sudo apt-get update; then
+        log_error "Failed to update package index"
+        cleanup_install_container
+        trap - EXIT
+        exit 1
+    fi
 
+    # Install packages - pass as separate quoted arguments (safe after validation)
+    if docker exec "$temp_container" sudo apt-get install -y "${packages[@]}"; then
         # Commit changes to image
         docker commit "$temp_container" "$IMAGE_NAME" >/dev/null
-        log_ok "Packages installed: $packages"
+        log_ok "Packages installed: ${packages[*]}"
     else
         log_error "Failed to install packages"
+        cleanup_install_container
+        trap - EXIT
+        exit 1
     fi
 
     # Cleanup
-    docker rm -f "$temp_container" >/dev/null 2>&1
+    cleanup_install_container
+    trap - EXIT
 }
 
 # ensure_image - Build image if it doesn't exist

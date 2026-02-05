@@ -139,8 +139,37 @@ remove_image() {
     log_ok "Image '$IMAGE_NAME' removed"
 }
 
+# check_sensitive_mount - Warn if mounting sensitive directories
+# Returns 0 to continue, 1 to abort
+check_sensitive_mount() {
+    local mount_path="$1"
+
+    # Resolve to absolute path
+    local abs_path
+    abs_path="$(cd "$mount_path" 2>/dev/null && pwd)" || abs_path="$mount_path"
+
+    # Check for sensitive directories
+    case "$abs_path" in
+        "$HOME"|"$HOME/"|"/"|"/home"|"/etc"|"/var"|"/usr"|"/bin"|"/sbin"|"/root")
+            log_warn "Warning: About to mount sensitive directory '$abs_path'"
+            log_warn "The container will have full read-write access to this directory."
+            log_warn "Consider running VibBox from a project subdirectory instead."
+            echo ""
+            read -rp "Continue anyway? [y/N]: " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                log_info "Cancelled"
+                return 1
+            fi
+            ;;
+    esac
+    return 0
+}
+
 # run_container <args...> - Run a VibBox container with optional arguments
 run_container() {
+    # Check for sensitive mount before proceeding
+    check_sensitive_mount "$(pwd)" || return 1
+
     # Detect Ollama availability
     detect_ollama || true
 
@@ -168,6 +197,9 @@ run_container() {
 
 # run_shell - Run a VibBox container with an interactive zsh shell
 run_shell() {
+    # Check for sensitive mount before proceeding
+    check_sensitive_mount "$(pwd)" || return 1
+
     # Detect Ollama availability
     detect_ollama || true
 
