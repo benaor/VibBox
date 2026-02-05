@@ -8,35 +8,293 @@
 #   Gère le parsing des arguments, le dispatch des commandes et l'orchestration
 #   générale de l'application.
 #
-# Usage futur:
-#   ./vibebox <command> [options]
-#
-# Commandes prévues:
-#   - init      : Initialiser un nouveau projet VibBox
-#   - start     : Démarrer le conteneur de développement
-#   - stop      : Arrêter le conteneur
-#   - shell     : Ouvrir un shell dans le conteneur
-#   - profile   : Gérer les profils (install, list, status)
-#   - build     : Construire/reconstruire l'image Docker
-#   - status    : Afficher le statut du projet/conteneur
-#   - help      : Afficher l'aide
+# Usage:
+#   vibebox [command] [options]
 #
 # =============================================================================
 
-# TODO: Source des modules lib/
-# source "$(dirname "$0")/lib/constants.sh"
-# source "$(dirname "$0")/lib/utils.sh"
-# source "$(dirname "$0")/lib/docker.sh"
-# source "$(dirname "$0")/lib/project.sh"
-# source "$(dirname "$0")/lib/profiles.sh"
+set -euo pipefail
 
-# TODO: Implémenter main()
-# - Parser les arguments
-# - Dispatcher vers la bonne commande
-# - Gérer les erreurs globales
+# =============================================================================
+# RESOLVE SOURCE DIRECTORY
+# Handle symlinks - compatible with both macOS and Linux
+# =============================================================================
 
-# TODO: Implémenter show_help()
-# - Afficher l'usage et les commandes disponibles
+resolve_source_dir() {
+    local source="${BASH_SOURCE[0]}"
 
-# TODO: Implémenter show_version()
-# - Afficher la version de VibBox
+    # Resolve symlinks - use readlink -f if available (Linux), otherwise loop (macOS)
+    if command -v readlink &>/dev/null && readlink -f "$source" &>/dev/null; then
+        source="$(readlink -f "$source")"
+    else
+        # macOS compatible symlink resolution
+        while [[ -L "$source" ]]; do
+            local dir
+            dir="$(cd -P "$(dirname "$source")" && pwd)"
+            source="$(readlink "$source")"
+            # Handle relative symlinks
+            [[ "$source" != /* ]] && source="$dir/$source"
+        done
+    fi
+
+    # Get the directory containing the script
+    cd -P "$(dirname "$source")" && pwd
+}
+
+VIBEBOX_SOURCE_DIR="$(resolve_source_dir)"
+
+# =============================================================================
+# SOURCE MODULES
+# =============================================================================
+
+# shellcheck source=lib/constants.sh
+source "$VIBEBOX_SOURCE_DIR/lib/constants.sh"
+# shellcheck source=lib/utils.sh
+source "$VIBEBOX_SOURCE_DIR/lib/utils.sh"
+# shellcheck source=lib/project.sh
+source "$VIBEBOX_SOURCE_DIR/lib/project.sh"
+# shellcheck source=lib/docker.sh
+source "$VIBEBOX_SOURCE_DIR/lib/docker.sh"
+# shellcheck source=lib/profiles.sh
+source "$VIBEBOX_SOURCE_DIR/lib/profiles.sh"
+
+# =============================================================================
+# COMMANDS
+# =============================================================================
+
+# cmd_help - Display help message
+cmd_help() {
+    echo -e "${COLOR_BOLD}VibBox v${VIBEBOX_VERSION}${COLOR_NC} — Containerized Mistral Vibe Environment"
+    echo ""
+    echo -e "${COLOR_CYAN}USAGE:${COLOR_NC}"
+    echo "    vibebox [command] [options]"
+    echo ""
+    echo -e "${COLOR_CYAN}COMMANDS:${COLOR_NC}"
+    echo "    (default)        Launch Mistral Vibe in the container"
+    echo "    shell            Open a zsh shell in the container"
+    echo "    info             Show project and system information"
+    echo "    build            Build the Docker image"
+    echo "    rebuild          Clean rebuild the Docker image"
+    echo "    clean            Remove project data and/or image"
+    echo "    profiles         List available profiles"
+    echo "    profile <name>   Install a profile (typescript, php)"
+    echo "    profile status   Show installed profiles"
+    echo "    install <pkg>    Install apt packages in the image"
+    echo "    help             Show this help"
+    echo ""
+    echo -e "${COLOR_CYAN}ENVIRONMENT:${COLOR_NC}"
+    echo "    MISTRAL_API_KEY  Your Mistral API key (required for API usage)"
+    echo "    OLLAMA_HOST      Ollama server URL (optional, for local models)"
+    echo ""
+}
+
+# cmd_info - Display project and system information
+cmd_info() {
+    echo -e "${COLOR_BOLD}VibBox v${VIBEBOX_VERSION}${COLOR_NC}"
+    echo ""
+
+    echo -e "${COLOR_CYAN}Project:${COLOR_NC}"
+    echo "    Name:       $PROJECT_NAME"
+    echo "    Directory:  $(pwd)"
+    echo "    Data dir:   $PROJECT_DATA_DIR"
+    echo ""
+
+    echo -e "${COLOR_CYAN}Docker:${COLOR_NC}"
+    echo "    Image:      $IMAGE_NAME"
+    if image_exists; then
+        local created
+        created="$(docker image inspect "$IMAGE_NAME" --format '{{.Created}}' 2>/dev/null | cut -d'T' -f1)"
+        echo -e "    Status:     ${COLOR_GREEN}Built${COLOR_NC} ($created)"
+    else
+        echo -e "    Status:     ${COLOR_YELLOW}Not built${COLOR_NC}"
+    fi
+    echo ""
+
+    echo -e "${COLOR_CYAN}System:${COLOR_NC}"
+    echo "    OS:         $VIBEBOX_OS"
+    echo "    Arch:       $VIBEBOX_ARCH"
+    echo ""
+
+    echo -e "${COLOR_CYAN}Profiles:${COLOR_NC}"
+    if [[ -f "$PROJECT_PROFILES_FILE" ]] && [[ -s "$PROJECT_PROFILES_FILE" ]]; then
+        while IFS= read -r line; do
+            echo "    - $line"
+        done < "$PROJECT_PROFILES_FILE"
+    else
+        echo "    (none installed)"
+    fi
+    echo ""
+
+    echo -e "${COLOR_CYAN}Environment:${COLOR_NC}"
+    if [[ -n "${MISTRAL_API_KEY:-}" ]]; then
+        echo -e "    MISTRAL_API_KEY: ${COLOR_GREEN}Set${COLOR_NC}"
+    else
+        echo -e "    MISTRAL_API_KEY: ${COLOR_RED}Not set${COLOR_NC}"
+    fi
+    if [[ -n "${OLLAMA_HOST:-}" ]]; then
+        echo "    OLLAMA_HOST:     $OLLAMA_HOST"
+    else
+        echo "    OLLAMA_HOST:     Not set"
+    fi
+    echo ""
+}
+
+# cmd_clean - Interactive cleanup menu
+cmd_clean() {
+    echo -e "${COLOR_BOLD}Clean VibBox data${COLOR_NC}"
+    echo ""
+    echo "What would you like to remove?"
+    echo ""
+    echo "  1) Project data ($PROJECT_DATA_DIR)"
+    echo "  2) Docker image ($IMAGE_NAME)"
+    echo "  3) Both"
+    echo "  4) Cancel"
+    echo ""
+
+    read -rp "Choice [1-4]: " choice
+
+    case "$choice" in
+        1)
+            read -rp "Remove project data? [y/N]: " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                rm -rf "$PROJECT_DATA_DIR"
+                log_ok "Project data removed: $PROJECT_DATA_DIR"
+            else
+                log_info "Cancelled"
+            fi
+            ;;
+        2)
+            read -rp "Remove Docker image? [y/N]: " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                remove_image
+            else
+                log_info "Cancelled"
+            fi
+            ;;
+        3)
+            read -rp "Remove project data AND Docker image? [y/N]: " confirm
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                rm -rf "$PROJECT_DATA_DIR"
+                log_ok "Project data removed: $PROJECT_DATA_DIR"
+                remove_image
+            else
+                log_info "Cancelled"
+            fi
+            ;;
+        4|*)
+            log_info "Cancelled"
+            ;;
+    esac
+}
+
+# cmd_install <packages...> - Install apt packages in the image
+cmd_install() {
+    if [[ $# -eq 0 ]]; then
+        log_error "Usage: vibebox install <package> [package...]"
+        exit 1
+    fi
+
+    local packages="$*"
+    local temp_container="${CONTAINER_NAME}-install"
+
+    log_info "Installing packages: $packages"
+
+    # Start a temporary container
+    docker run -d \
+        --name "$temp_container" \
+        "$IMAGE_NAME" \
+        sleep infinity >/dev/null
+
+    # Install packages
+    if docker exec "$temp_container" \
+        sudo apt-get update && \
+        docker exec "$temp_container" \
+        sudo apt-get install -y $packages; then
+
+        # Commit changes to image
+        docker commit "$temp_container" "$IMAGE_NAME" >/dev/null
+        log_ok "Packages installed: $packages"
+    else
+        log_error "Failed to install packages"
+    fi
+
+    # Cleanup
+    docker rm -f "$temp_container" >/dev/null 2>&1
+}
+
+# ensure_image - Build image if it doesn't exist
+ensure_image() {
+    if ! image_exists; then
+        log_info "Image not found, building..."
+        build_image
+    fi
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+main() {
+    # Detect system
+    detect_os
+    detect_arch
+
+    # Verify Docker
+    ensure_docker
+
+    # Initialize project
+    init_project_vars
+    ensure_project_dirs
+
+    # Parse command
+    local cmd="${1:-}"
+
+    case "$cmd" in
+        help|--help|-h)
+            cmd_help
+            ;;
+        info)
+            cmd_info
+            ;;
+        shell)
+            ensure_image
+            run_shell
+            ;;
+        build)
+            build_image
+            ;;
+        rebuild)
+            remove_image
+            build_image
+            ;;
+        clean)
+            cmd_clean
+            ;;
+        install)
+            shift
+            ensure_image
+            cmd_install "$@"
+            ;;
+        profiles)
+            log_warn "Not implemented yet"
+            ;;
+        profile)
+            shift
+            log_warn "Not implemented yet"
+            ;;
+        *)
+            # Default: run vibe in container
+            ensure_image
+
+            # Warn if no API key
+            if [[ -z "${MISTRAL_API_KEY:-}" ]]; then
+                log_warn "MISTRAL_API_KEY is not set. API features will not work."
+            fi
+
+            run_container "$@"
+            ;;
+    esac
+}
+
+# Run main with all arguments
+main "$@"
