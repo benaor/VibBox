@@ -1,91 +1,111 @@
-#!/usr/bin/env bash
 # =============================================================================
 # VibBox - Utility Functions
+# =============================================================================
+# This file is sourced, not executed directly
 # =============================================================================
 #
 # Description:
 #   Fonctions utilitaires utilisées dans tout le projet : logging, validation,
-#   manipulation de chaînes, etc.
+#   détection système, etc.
 #
 # Dépendances:
 #   - constants.sh (pour les couleurs)
 #
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Fonctions de logging prévues:
-# -----------------------------------------------------------------------------
-
-# log_info()
-#   Affiche un message d'information (bleu)
-#   Args: $1 = message
-
-# log_success() / log_ok()
-#   Affiche un message de succès (vert)
-#   Args: $1 = message
-
-# log_warning() / log_warn()
-#   Affiche un message d'avertissement (jaune)
-#   Args: $1 = message
-
-# log_error()
-#   Affiche un message d'erreur (rouge)
-#   Args: $1 = message
-
-# log_debug()
-#   Affiche un message de debug (magenta) - seulement si DEBUG=1
-#   Args: $1 = message
-
-# log_step()
-#   Affiche une étape en cours (cyan)
-#   Args: $1 = message
+# Source constants
+# shellcheck source=constants.sh
+source "$(dirname "${BASH_SOURCE[0]}")/constants.sh"
 
 # -----------------------------------------------------------------------------
-# Fonctions utilitaires prévues:
+# Variables globales (set par detect_*)
 # -----------------------------------------------------------------------------
 
-# die()
-#   Affiche un message d'erreur et quitte avec un code d'erreur
-#   Args: $1 = message, $2 = code de sortie (optionnel, défaut: 1)
+VIBEBOX_OS=""
+VIBEBOX_ARCH=""
 
-# confirm()
-#   Demande une confirmation à l'utilisateur
-#   Args: $1 = message de confirmation
-#   Return: 0 si oui, 1 si non
+# -----------------------------------------------------------------------------
+# Fonctions de logging
+# -----------------------------------------------------------------------------
 
-# is_command_available()
-#   Vérifie si une commande est disponible dans le PATH
-#   Args: $1 = nom de la commande
-#   Return: 0 si disponible, 1 sinon
+# log_info <message>
+#   Affiche un message d'information en bleu
+log_info() {
+    echo -e "${COLOR_BLUE}[vibebox]${COLOR_NC} $1"
+}
 
-# require_command()
-#   Vérifie qu'une commande est disponible, sinon quitte avec erreur
-#   Args: $1 = nom de la commande, $2 = message d'erreur (optionnel)
+# log_ok <message>
+#   Affiche un message de succès en vert
+log_ok() {
+    echo -e "${COLOR_GREEN}[vibebox]${COLOR_NC} $1"
+}
 
-# trim()
-#   Supprime les espaces en début et fin de chaîne
-#   Args: $1 = chaîne
-#   Return: chaîne trimée (stdout)
+# log_warn <message>
+#   Affiche un message d'avertissement en jaune
+log_warn() {
+    echo -e "${COLOR_YELLOW}[vibebox]${COLOR_NC} $1"
+}
 
-# to_lowercase()
-#   Convertit une chaîne en minuscules
-#   Args: $1 = chaîne
-#   Return: chaîne en minuscules (stdout)
+# log_error <message>
+#   Affiche un message d'erreur en rouge
+log_error() {
+    echo -e "${COLOR_RED}[vibebox]${COLOR_NC} $1"
+}
 
-# generate_id()
-#   Génère un identifiant unique court
-#   Return: identifiant (stdout)
+# -----------------------------------------------------------------------------
+# Fonctions utilitaires
+# -----------------------------------------------------------------------------
 
-# is_absolute_path()
-#   Vérifie si un chemin est absolu
-#   Args: $1 = chemin
-#   Return: 0 si absolu, 1 sinon
+# require_command <cmd>
+#   Vérifie qu'une commande existe, sinon log_error et exit 1
+require_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &>/dev/null; then
+        log_error "Required command not found: $cmd"
+        exit 1
+    fi
+}
 
-# resolve_path()
-#   Résout un chemin relatif en chemin absolu
-#   Args: $1 = chemin
-#   Return: chemin absolu (stdout)
+# detect_os
+#   Détecte l'OS et stocke le résultat dans VIBEBOX_OS
+#   Retourne "macos" ou "linux"
+detect_os() {
+    local os
+    os="$(uname -s)"
 
-# spinner()
-#   Affiche un spinner pendant l'exécution d'une commande
-#   Args: $1 = PID du processus, $2 = message (optionnel)
+    case "$os" in
+        Darwin)
+            VIBEBOX_OS="macos"
+            ;;
+        Linux)
+            VIBEBOX_OS="linux"
+            ;;
+        *)
+            VIBEBOX_OS="unknown"
+            ;;
+    esac
+
+    echo "$VIBEBOX_OS"
+}
+
+# detect_arch
+#   Détecte l'architecture et stocke le résultat dans VIBEBOX_ARCH
+#   Retourne "arm64" ou "amd64"
+detect_arch() {
+    local arch
+    arch="$(uname -m)"
+
+    case "$arch" in
+        aarch64|arm64)
+            VIBEBOX_ARCH="arm64"
+            ;;
+        x86_64|amd64)
+            VIBEBOX_ARCH="amd64"
+            ;;
+        *)
+            VIBEBOX_ARCH="unknown"
+            ;;
+    esac
+
+    echo "$VIBEBOX_ARCH"
+}
