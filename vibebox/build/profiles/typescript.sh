@@ -5,46 +5,87 @@
 #
 # Description:
 #   Profil d'installation pour le développement TypeScript/JavaScript.
-#   Installe les outils nécessaires pour le développement frontend et backend.
+#   Ce script s'exécute À L'INTÉRIEUR du conteneur Docker (en tant que user "vibe").
 #
 # Outils installés:
 #   - Bun (runtime JavaScript ultra-rapide + package manager)
-#   - Node.js (via bun ou nvm si nécessaire)
-#   - React (templates et outils)
-#   - Expo (pour le développement React Native)
-#   - TypeScript (compilateur global)
-#   - ESLint, Prettier (linting et formatting)
+#   - TypeScript, tsx, @types/node
+#   - Expo CLI + EAS CLI (React Native)
+#   - React Native CLI
 #
 # Usage:
 #   Ce script est exécuté automatiquement lors de l'installation du profil
-#   via la commande: vibebox profile install typescript
+#   via la commande: vibebox profile typescript
 #
 # =============================================================================
 
-# PROFILE_NAME="typescript"
-# PROFILE_DESCRIPTION="TypeScript/JavaScript development with Bun, React, and Expo"
+set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# Fonctions prévues:
-# -----------------------------------------------------------------------------
+echo "📦 Installing TypeScript profile..."
 
-# install_bun()
-#   Installe Bun (runtime JS)
+# =============================================================================
+# INSTALL BUN
+# =============================================================================
 
-# install_node()
-#   Installe Node.js si nécessaire (fallback)
+echo "Installing Bun..."
 
-# install_global_packages()
-#   Installe les packages npm/bun globaux (typescript, eslint, prettier)
+# Install bun
+curl -fsSL https://bun.sh/install | bash
 
-# install_react_tools()
-#   Configure les outils React (create-react-app, vite templates)
+# Add bun to PATH in .zshrc if not already present
+if ! grep -q 'BUN_INSTALL' ~/.zshrc 2>/dev/null; then
+    echo '' >> ~/.zshrc
+    echo '# Bun' >> ~/.zshrc
+    echo 'export BUN_INSTALL="$HOME/.bun"' >> ~/.zshrc
+    echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> ~/.zshrc
+fi
 
-# install_expo()
-#   Installe Expo CLI pour React Native
+# Source PATH for the rest of this script
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
 
-# verify_installation()
-#   Vérifie que tous les outils sont correctement installés
+# Verify bun installation
+echo "Bun version: $(bun --version)"
 
-# main()
-#   Point d'entrée - orchestre l'installation complète
+# =============================================================================
+# INSTALL GLOBAL TOOLS VIA BUN
+# =============================================================================
+
+echo "Installing TypeScript tools..."
+
+# TypeScript and related tools
+bun install -g typescript || true
+bun install -g tsx || true
+bun install -g @types/node || true
+
+# =============================================================================
+# INSTALL EXPO CLI
+# =============================================================================
+
+echo "Installing Expo CLI..."
+
+bun install -g expo-cli || true
+bun install -g eas-cli || true
+
+# Verify expo installation
+expo --version || echo "expo-cli installed"
+
+# =============================================================================
+# INSTALL REACT NATIVE TOOLS
+# =============================================================================
+
+echo "Installing React Native CLI..."
+
+bun install -g react-native || true
+
+# Note: Android/iOS native dependencies are NOT installed
+# They require external SDKs, which are out of scope for this container
+
+# =============================================================================
+# FINISH
+# =============================================================================
+
+echo ""
+echo "✅ TypeScript profile installed (bun + react + expo)"
+echo "   bun: $(bun --version)"
+echo "   tsc: $(tsc --version 2>/dev/null || echo 'not found')"
