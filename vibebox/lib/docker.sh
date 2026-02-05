@@ -1,6 +1,7 @@
-#!/usr/bin/env bash
 # =============================================================================
 # VibBox - Docker Functions
+# =============================================================================
+# This file is sourced, not executed directly
 # =============================================================================
 #
 # Description:
@@ -8,77 +9,115 @@
 #   conteneurs, vérification de l'état, etc.
 #
 # Dépendances:
-#   - constants.sh
-#   - utils.sh
+#   - project.sh (qui source utils.sh et constants.sh)
 #
 # =============================================================================
 
+# Source project (which sources utils and constants)
+# shellcheck source=project.sh
+source "$(dirname "${BASH_SOURCE[0]}")/project.sh"
+
 # -----------------------------------------------------------------------------
-# Fonctions prévues:
+# Fonctions
 # -----------------------------------------------------------------------------
 
-# docker_check_installed()
-#   Vérifie que Docker est installé et accessible
-#   Return: 0 si OK, 1 sinon
+# ensure_docker - Verify Docker is installed and daemon is running
+ensure_docker() {
+    # Check if docker command exists
+    if ! command -v docker &>/dev/null; then
+        log_error "Docker is not installed"
+        if [[ "$VIBEBOX_OS" == "macos" ]]; then
+            log_error "Install Docker Desktop: https://docs.docker.com/desktop/install/mac-install/"
+        else
+            log_error "Install Docker: https://docs.docker.com/engine/install/"
+        fi
+        exit 1
+    fi
 
-# docker_check_running()
-#   Vérifie que le daemon Docker est en cours d'exécution
-#   Return: 0 si OK, 1 sinon
+    # Check if daemon is running
+    if ! docker info &>/dev/null; then
+        log_error "Docker daemon is not running"
+        if [[ "$VIBEBOX_OS" == "macos" ]]; then
+            log_error "Start Docker Desktop application"
+        else
+            log_error "Start docker service: sudo systemctl start docker"
+        fi
+        exit 1
+    fi
 
-# docker_image_exists()
-#   Vérifie si une image Docker existe localement
-#   Args: $1 = nom de l'image
-#   Return: 0 si existe, 1 sinon
+    # On Linux, check if user is in docker group
+    if [[ "$VIBEBOX_OS" == "linux" ]]; then
+        if ! groups | grep -q '\bdocker\b'; then
+            log_warn "Current user is not in the docker group"
+            log_warn "Run: sudo usermod -aG docker $USER"
+            log_warn "Then log out and log back in"
+        fi
+    fi
+}
 
-# docker_build_base()
-#   Construit l'image de base VibBox
-#   Args: $1 = tag (optionnel)
-#   Return: 0 si succès, 1 sinon
+# image_exists - Check if the project image exists locally
+image_exists() {
+    docker image inspect "$IMAGE_NAME" &>/dev/null
+}
 
-# docker_build_with_profile()
-#   Construit une image avec un profil spécifique
-#   Args: $1 = nom du profil, $2 = tag (optionnel)
-#   Return: 0 si succès, 1 sinon
+# build_image - Build the VibBox Docker image for the current project
+build_image() {
+    log_info "Building VibBox image for project '$PROJECT_NAME'..."
 
-# docker_run_container()
-#   Lance un conteneur VibBox
-#   Args: $1 = nom du projet, $2 = chemin du projet, $3 = options (optionnel)
-#   Return: 0 si succès, 1 sinon
+    local dockerfile="$VIBEBOX_SOURCE_DIR/build/Dockerfile.base"
 
-# docker_stop_container()
-#   Arrête un conteneur VibBox
-#   Args: $1 = nom du conteneur
-#   Return: 0 si succès, 1 sinon
+    if [[ ! -f "$dockerfile" ]]; then
+        log_error "Dockerfile not found: $dockerfile"
+        exit 1
+    fi
 
-# docker_remove_container()
-#   Supprime un conteneur VibBox
-#   Args: $1 = nom du conteneur
-#   Return: 0 si succès, 1 sinon
+    if docker build \
+        --build-arg HOST_UID="$(id -u)" \
+        --build-arg HOST_GID="$(id -g)" \
+        -t "$IMAGE_NAME" \
+        -f "$dockerfile" \
+        "$VIBEBOX_SOURCE_DIR"; then
+        log_ok "Image '$IMAGE_NAME' built successfully"
+    else
+        log_error "Failed to build image '$IMAGE_NAME'"
+        exit 1
+    fi
+}
 
-# docker_container_exists()
-#   Vérifie si un conteneur existe
-#   Args: $1 = nom du conteneur
-#   Return: 0 si existe, 1 sinon
+# remove_image - Remove the project Docker image
+remove_image() {
+    docker rmi "$IMAGE_NAME" 2>/dev/null || true
+    log_ok "Image '$IMAGE_NAME' removed"
+}
 
-# docker_container_running()
-#   Vérifie si un conteneur est en cours d'exécution
-#   Args: $1 = nom du conteneur
-#   Return: 0 si running, 1 sinon
+# run_container <args...> - Run a VibBox container with optional arguments
+run_container() {
+    docker run \
+        --rm \
+        --name "$CONTAINER_NAME" \
+        -it \
+        -v "$(pwd):$WORKSPACE_MOUNT" \
+        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe" \
+        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history" \
+        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}" \
+        -e "TERM=${TERM:-xterm-256color}" \
+        -w "$WORKSPACE_MOUNT" \
+        "$IMAGE_NAME" \
+        "$@"
+}
 
-# docker_exec()
-#   Exécute une commande dans un conteneur
-#   Args: $1 = nom du conteneur, $2+ = commande
-#   Return: code de retour de la commande
-
-# docker_shell()
-#   Ouvre un shell interactif dans un conteneur
-#   Args: $1 = nom du conteneur
-#   Return: 0 si succès, 1 sinon
-
-# docker_list_vibbox_containers()
-#   Liste tous les conteneurs VibBox
-#   Return: liste des conteneurs (stdout)
-
-# docker_cleanup_unused()
-#   Nettoie les conteneurs et images VibBox inutilisés
-#   Return: 0 si succès, 1 sinon
+# run_shell - Run a VibBox container with an interactive zsh shell
+run_shell() {
+    docker run \
+        --rm \
+        --name "$CONTAINER_NAME" \
+        -it \
+        -v "$(pwd):$WORKSPACE_MOUNT" \
+        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe" \
+        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history" \
+        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}" \
+        -e "TERM=${TERM:-xterm-256color}" \
+        -w "$WORKSPACE_MOUNT" \
+        --entrypoint /usr/bin/zsh \
+        "$IMAGE_NAME"
+}
