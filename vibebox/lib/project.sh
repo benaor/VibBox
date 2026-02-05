@@ -1,69 +1,95 @@
-#!/usr/bin/env bash
 # =============================================================================
 # VibBox - Project Management
+# =============================================================================
+# This file is sourced, not executed directly
 # =============================================================================
 #
 # Description:
 #   Fonctions pour la détection et la gestion des projets. Permet d'identifier
-#   le type de projet, de gérer les répertoires de travail et la configuration
+#   le projet courant, de gérer les répertoires de données et la configuration
 #   par projet.
 #
 # Dépendances:
-#   - constants.sh
-#   - utils.sh
+#   - utils.sh (qui source constants.sh)
 #
 # =============================================================================
 
+# Source utils (which sources constants)
+# shellcheck source=utils.sh
+source "$(dirname "${BASH_SOURCE[0]}")/utils.sh"
+
 # -----------------------------------------------------------------------------
-# Fonctions prévues:
+# Variables globales (set par init_project_vars)
 # -----------------------------------------------------------------------------
 
-# project_detect_type()
-#   Détecte le type de projet basé sur les fichiers présents
-#   Args: $1 = chemin du projet (optionnel, défaut: pwd)
-#   Return: type de projet (stdout): "typescript", "php", "python", "unknown"
+PROJECT_NAME=""
+PROJECT_DATA_DIR=""
+IMAGE_NAME=""
+CONTAINER_NAME=""
+PROJECT_PROFILES_FILE=""
 
-# project_get_name()
-#   Récupère le nom du projet (basé sur le dossier ou package.json, etc.)
-#   Args: $1 = chemin du projet (optionnel)
-#   Return: nom du projet (stdout)
+# -----------------------------------------------------------------------------
+# Fonctions
+# -----------------------------------------------------------------------------
 
-# project_init()
-#   Initialise un nouveau projet VibBox dans le répertoire courant
-#   Args: $1 = type de projet (optionnel)
-#   Return: 0 si succès, 1 sinon
+# get_project_name
+#   Récupère le nom du projet basé sur le répertoire courant
+#   - Prend le basename de $(pwd)
+#   - Convertit en minuscules
+#   - Remplace tout caractère non [a-z0-9_-] par un tiret
+#   Return: nom du projet normalisé (stdout)
+get_project_name() {
+    local name
+    name="$(basename "$(pwd)")"
+    # Convert to lowercase and replace invalid chars with dash
+    echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g'
+}
 
-# project_get_config_dir()
-#   Retourne le chemin du répertoire de config VibBox pour un projet
-#   Args: $1 = chemin du projet (optionnel)
-#   Return: chemin (stdout)
+# init_project_vars
+#   Initialise les variables globales du projet courant
+#   Sets: PROJECT_NAME, PROJECT_DATA_DIR, IMAGE_NAME, CONTAINER_NAME, PROJECT_PROFILES_FILE
+init_project_vars() {
+    PROJECT_NAME="$(get_project_name)"
+    PROJECT_DATA_DIR="$VIBEBOX_DIR/$PROJECT_NAME"
+    IMAGE_NAME="${IMAGE_PREFIX}-${PROJECT_NAME}"
+    CONTAINER_NAME="${CONTAINER_PREFIX}-${PROJECT_NAME}-$$"
+    PROJECT_PROFILES_FILE="$VIBEBOX_DIR/profiles/${PROJECT_NAME}.ini"
+}
 
-# project_config_exists()
-#   Vérifie si un projet a une configuration VibBox
-#   Args: $1 = chemin du projet (optionnel)
-#   Return: 0 si existe, 1 sinon
+# ensure_project_dirs
+#   Crée les répertoires de données nécessaires pour le projet
+#   - $PROJECT_DATA_DIR/.vibe/      (config vibe persistante)
+#   - $PROJECT_DATA_DIR/.config/    (configs outils)
+#   - $PROJECT_DATA_DIR/.zsh_history (historique shell)
+#   - $VIBEBOX_DIR/profiles/        (répertoire des fichiers profils)
+#   - $PROJECT_PROFILES_FILE        (fichier .ini du projet)
+ensure_project_dirs() {
+    local is_new_project=false
 
-# project_read_config()
-#   Lit la configuration d'un projet
-#   Args: $1 = clé de config, $2 = chemin du projet (optionnel)
-#   Return: valeur (stdout)
+    # Check if this is a new project
+    if [[ ! -d "$PROJECT_DATA_DIR" ]]; then
+        is_new_project=true
+    fi
 
-# project_write_config()
-#   Écrit une valeur dans la configuration du projet
-#   Args: $1 = clé, $2 = valeur, $3 = chemin du projet (optionnel)
-#   Return: 0 si succès, 1 sinon
+    # Create project data directories
+    mkdir -p "$PROJECT_DATA_DIR/.vibe"
+    mkdir -p "$PROJECT_DATA_DIR/.config"
 
-# project_get_container_name()
-#   Génère le nom du conteneur pour un projet
-#   Args: $1 = chemin du projet (optionnel)
-#   Return: nom du conteneur (stdout)
+    # Create zsh_history file if it doesn't exist
+    if [[ ! -f "$PROJECT_DATA_DIR/.zsh_history" ]]; then
+        touch "$PROJECT_DATA_DIR/.zsh_history"
+    fi
 
-# project_validate_directory()
-#   Valide qu'un répertoire peut être utilisé comme projet VibBox
-#   Args: $1 = chemin du répertoire
-#   Return: 0 si valide, 1 sinon
+    # Create profiles directory
+    mkdir -p "$VIBEBOX_DIR/profiles"
 
-# project_suggest_profile()
-#   Suggère un profil basé sur le type de projet détecté
-#   Args: $1 = chemin du projet (optionnel)
-#   Return: nom du profil suggéré (stdout)
+    # Create project profiles file if it doesn't exist
+    if [[ ! -f "$PROJECT_PROFILES_FILE" ]]; then
+        touch "$PROJECT_PROFILES_FILE"
+    fi
+
+    # Log if this is a new project
+    if [[ "$is_new_project" == true ]]; then
+        log_info "Project '$PROJECT_NAME' initialized"
+    fi
+}
