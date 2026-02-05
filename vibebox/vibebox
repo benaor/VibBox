@@ -276,11 +276,11 @@ main() {
             cmd_install "$@"
             ;;
         profiles)
-            log_warn "Not implemented yet"
+            list_profiles
             ;;
         profile)
             shift
-            log_warn "Not implemented yet"
+            handle_profile "$@"
             ;;
         *)
             # Default: run vibe in container
