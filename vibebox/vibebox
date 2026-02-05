@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# =============================================================================
+# VibBox - Entry Point CLI
+# =============================================================================
+#
+# Description:
+#   Script principal servant de point d'entrée pour VibBox.
+#   Gère le parsing des arguments, le dispatch des commandes et l'orchestration
+#   générale de l'application.
+#
+# Usage futur:
+#   ./vibebox <command> [options]
+#
+# Commandes prévues:
+#   - init      : Initialiser un nouveau projet VibBox
+#   - start     : Démarrer le conteneur de développement
+#   - stop      : Arrêter le conteneur
+#   - shell     : Ouvrir un shell dans le conteneur
+#   - profile   : Gérer les profils (install, list, status)
+#   - build     : Construire/reconstruire l'image Docker
+#   - status    : Afficher le statut du projet/conteneur
+#   - help      : Afficher l'aide
+#
+# =============================================================================
+
+# TODO: Source des modules lib/
+# source "$(dirname "$0")/lib/constants.sh"
+# source "$(dirname "$0")/lib/utils.sh"
+# source "$(dirname "$0")/lib/docker.sh"
+# source "$(dirname "$0")/lib/project.sh"
+# source "$(dirname "$0")/lib/profiles.sh"
+
+# TODO: Implémenter main()
+# - Parser les arguments
+# - Dispatcher vers la bonne commande
+# - Gérer les erreurs globales
+
+# TODO: Implémenter show_help()
+# - Afficher l'usage et les commandes disponibles
+
+# TODO: Implémenter show_version()
+# - Afficher la version de VibBox

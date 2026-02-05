@@ -1,0 +1,40 @@
+# =============================================================================
+# VibBox - ZSH Configuration Template
+# =============================================================================
+#
+# Description:
+#   Template de configuration zsh pour les conteneurs VibBox.
+#   Ce fichier est copié dans le conteneur lors de sa création et configure
+#   l'environnement shell de l'utilisateur.
+#
+# Variables à substituer lors de la copie:
+#   - {{VIBBOX_VERSION}}     : Version de VibBox
+#   - {{PROJECT_NAME}}       : Nom du projet
+#   - {{PROFILE_NAME}}       : Profil installé
+#
+# =============================================================================
+
+# TODO: Configuration Oh-My-Zsh
+# export ZSH="$HOME/.oh-my-zsh"
+# ZSH_THEME="robbyrussell"  # ou un thème personnalisé VibBox
+# plugins=(git docker npm composer)
+# source $ZSH/oh-my-zsh.sh
+
+# TODO: Aliases VibBox
+# alias ll="ls -la"
+# alias la="ls -A"
+# alias l="ls -CF"
+
+# TODO: Variables d'environnement
+# export EDITOR="vim"
+# export LANG="en_US.UTF-8"
+
+# TODO: Configuration PATH
+# export PATH="$HOME/.local/bin:$PATH"
+
+# TODO: Message de bienvenue VibBox
+# echo "🎵 VibBox - {{PROJECT_NAME}}"
+# echo "   Profile: {{PROFILE_NAME}}"
+
+# TODO: Hooks personnalisés par profil
+# Chaque profil peut ajouter sa propre configuration ici
