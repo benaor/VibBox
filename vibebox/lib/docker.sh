@@ -18,6 +18,13 @@
 source "$(dirname "${BASH_SOURCE[0]}")/project.sh"
 
 # -----------------------------------------------------------------------------
+# Variables globales (Ollama)
+# -----------------------------------------------------------------------------
+
+OLLAMA_AVAILABLE=false
+OLLAMA_URL=""
+
+# -----------------------------------------------------------------------------
 # Fonctions
 # -----------------------------------------------------------------------------
 
@@ -53,6 +60,42 @@ ensure_docker() {
             log_warn "Then log out and log back in"
         fi
     fi
+}
+
+# detect_ollama - Detect if Ollama is available (local or via OLLAMA_HOST)
+detect_ollama() {
+    OLLAMA_AVAILABLE=false
+    OLLAMA_URL=""
+
+    # If OLLAMA_HOST is explicitly set, use it
+    if [[ -n "${OLLAMA_HOST:-}" ]]; then
+        OLLAMA_URL="$OLLAMA_HOST"
+        OLLAMA_AVAILABLE=true
+        log_info "Ollama configured at $OLLAMA_URL"
+        return 0
+    fi
+
+    # Try to detect local Ollama
+    local test_url
+    if [[ "$VIBEBOX_OS" == "macos" ]]; then
+        # On macOS, host.docker.internal works natively with Docker Desktop
+        test_url="http://localhost:11434/api/tags"
+    else
+        # On Linux, test localhost directly
+        test_url="http://localhost:11434/api/tags"
+    fi
+
+    # Check if Ollama is running (with short timeout)
+    if curl -s --connect-timeout 2 "$test_url" >/dev/null 2>&1; then
+        # Ollama detected - set URL for container access
+        # Both macOS and Linux will use host.docker.internal with --add-host
+        OLLAMA_URL="http://host.docker.internal:11434"
+        OLLAMA_AVAILABLE=true
+        log_info "Ollama detected at $OLLAMA_URL"
+        return 0
+    fi
+
+    return 1
 }
 
 # image_exists - Check if the project image exists locally
@@ -92,32 +135,55 @@ remove_image() {
 
 # run_container <args...> - Run a VibBox container with optional arguments
 run_container() {
-    docker run \
-        --rm \
-        --name "$CONTAINER_NAME" \
-        -it \
-        -v "$(pwd):$WORKSPACE_MOUNT" \
-        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe" \
-        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history" \
-        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}" \
-        -e "TERM=${TERM:-xterm-256color}" \
-        -w "$WORKSPACE_MOUNT" \
-        "$IMAGE_NAME" \
-        "$@"
+    # Detect Ollama availability
+    detect_ollama || true
+
+    # Build docker run command
+    local docker_args=(
+        --rm
+        --name "$CONTAINER_NAME"
+        -it
+        -v "$(pwd):$WORKSPACE_MOUNT"
+        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe"
+        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history"
+        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}"
+        -e "TERM=${TERM:-xterm-256color}"
+        -w "$WORKSPACE_MOUNT"
+    )
+
+    # Add Ollama support if available
+    if [[ "$OLLAMA_AVAILABLE" == true ]]; then
+        docker_args+=(--add-host=host.docker.internal:host-gateway)
+        docker_args+=(-e "OLLAMA_HOST=$OLLAMA_URL")
+    fi
+
+    docker run "${docker_args[@]}" "$IMAGE_NAME" "$@"
 }
 
 # run_shell - Run a VibBox container with an interactive zsh shell
 run_shell() {
-    docker run \
-        --rm \
-        --name "$CONTAINER_NAME" \
-        -it \
-        -v "$(pwd):$WORKSPACE_MOUNT" \
-        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe" \
-        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history" \
-        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}" \
-        -e "TERM=${TERM:-xterm-256color}" \
-        -w "$WORKSPACE_MOUNT" \
-        --entrypoint /usr/bin/zsh \
-        "$IMAGE_NAME"
+    # Detect Ollama availability
+    detect_ollama || true
+
+    # Build docker run command
+    local docker_args=(
+        --rm
+        --name "$CONTAINER_NAME"
+        -it
+        -v "$(pwd):$WORKSPACE_MOUNT"
+        -v "$PROJECT_DATA_DIR/.vibe:/home/vibe/.vibe"
+        -v "$PROJECT_DATA_DIR/.zsh_history:/home/vibe/.zsh_history"
+        -e "MISTRAL_API_KEY=${MISTRAL_API_KEY:-}"
+        -e "TERM=${TERM:-xterm-256color}"
+        -w "$WORKSPACE_MOUNT"
+        --entrypoint /usr/bin/zsh
+    )
+
+    # Add Ollama support if available
+    if [[ "$OLLAMA_AVAILABLE" == true ]]; then
+        docker_args+=(--add-host=host.docker.internal:host-gateway)
+        docker_args+=(-e "OLLAMA_HOST=$OLLAMA_URL")
+    fi
+
+    docker run "${docker_args[@]}" "$IMAGE_NAME"
 }
