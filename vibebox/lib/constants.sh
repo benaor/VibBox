@@ -24,7 +24,7 @@ VIBEBOX_VERSION="0.1.0"
 # -----------------------------------------------------------------------------
 
 VIBEBOX_DIR="$HOME/.vibebox"              # Données persistantes globales
-VIBEBOX_SOURCE_DIR=""                      # Sera set dynamiquement (répertoire d'install de vibebox)
+VIBEBOX_SOURCE_DIR="${VIBEBOX_SOURCE_DIR:-}"  # Set par le script principal, ne pas écraser
 VIBE_GLOBAL_CONFIG_DIR="$HOME/.vibe"      # Config globale vibe de l'hôte
 
 # -----------------------------------------------------------------------------

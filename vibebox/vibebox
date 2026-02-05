@@ -235,24 +235,33 @@ ensure_image() {
 # =============================================================================
 
 main() {
-    # Detect system
-    detect_os
-    detect_arch
+    # Detect system (redirect output, we only need the global vars)
+    detect_os >/dev/null
+    detect_arch >/dev/null
 
-    # Verify Docker
-    ensure_docker
-
-    # Initialize project
+    # Initialize project vars (needed for most commands)
     init_project_vars
-    ensure_project_dirs
 
     # Parse command
     local cmd="${1:-}"
 
+    # Commands that don't require Docker
     case "$cmd" in
         help|--help|-h)
             cmd_help
+            return
             ;;
+        profiles)
+            list_profiles
+            return
+            ;;
+    esac
+
+    # All other commands require Docker
+    ensure_docker
+    ensure_project_dirs
+
+    case "$cmd" in
         info)
             cmd_info
             ;;
@@ -274,9 +283,6 @@ main() {
             shift
             ensure_image
             cmd_install "$@"
-            ;;
-        profiles)
-            list_profiles
             ;;
         profile)
             shift
