@@ -1,0 +1,11 @@
+# VibBox — Ollama provider configuration for Mistral Vibe
+# This file is auto-generated. Edit ~/.vibe/config.toml in the container for permanent changes.
+
+[providers.ollama]
+api_base = "${OLLAMA_URL}"
+api_key = "ollama"    # Ollama doesn't need a real key but vibe requires the field
+
+# Uncomment to use Ollama as default provider:
+# [default]
+# provider = "ollama"
+# model = "devstral-small:24b"

@@ -1,0 +1,70 @@
+# =============================================================================
+# VibBox - ZSH Configuration
+# =============================================================================
+#
+# Description:
+#   Configuration zsh pour les conteneurs VibBox.
+#   Inclut oh-my-zsh, aliases et activation automatique du venv.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Oh-My-Zsh Configuration
+# -----------------------------------------------------------------------------
+
+export ZSH="$HOME/.oh-my-zsh"
+
+# Theme
+ZSH_THEME="agnoster"
+
+# Plugins (conditionally load optional plugins if available)
+plugins=(git)
+
+# Load zsh-autosuggestions if available
+if [[ -d "$ZSH/custom/plugins/zsh-autosuggestions" ]] || [[ -d "/usr/share/zsh-autosuggestions" ]]; then
+    plugins+=(zsh-autosuggestions)
+fi
+
+# Load zsh-syntax-highlighting if available
+if [[ -d "$ZSH/custom/plugins/zsh-syntax-highlighting" ]] || [[ -d "/usr/share/zsh-syntax-highlighting" ]]; then
+    plugins+=(zsh-syntax-highlighting)
+fi
+
+# Source oh-my-zsh
+source "$ZSH/oh-my-zsh.sh"
+
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
+
+# PATH with local bin first
+export PATH="/home/vibe/.local/bin:$PATH"
+
+# -----------------------------------------------------------------------------
+# Workspace Setup
+# -----------------------------------------------------------------------------
+
+# Change to workspace directory
+cd /workspace || true
+
+# Auto-activate venv if it exists
+if [[ -f "/workspace/.venv/bin/activate" ]]; then
+    source /workspace/.venv/bin/activate
+fi
+
+# -----------------------------------------------------------------------------
+# Aliases
+# -----------------------------------------------------------------------------
+
+alias ll="ls -la"
+alias gs="git status"
+alias gd="git diff"
+alias v="vibe"
+
+# -----------------------------------------------------------------------------
+# Welcome Message
+# -----------------------------------------------------------------------------
+
+echo "🐳 VibBox — Mistral Vibe Environment"
+echo "   Project: $(basename /workspace)"
+echo ""

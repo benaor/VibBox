@@ -1,0 +1,62 @@
+# =============================================================================
+# VibBox - Default Network Allowlist
+# =============================================================================
+#
+# Description:
+#   Liste blanche par défaut des domaines autorisés pour les connexions réseau
+#   sortantes depuis le conteneur VibBox. Utilisé pour le futur système de
+#   restriction réseau (sandboxing).
+#
+# Format:
+#   - Une entrée par ligne
+#   - Les lignes commençant par # sont des commentaires
+#   - Wildcards supportés : *.example.com
+#
+# Usage futur:
+#   Cette liste sera utilisée pour configurer les règles iptables/nftables
+#   ou un proxy filtrant dans le conteneur.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Package managers & registries
+# -----------------------------------------------------------------------------
+# registry.npmjs.org
+# pypi.org
+# files.pythonhosted.org
+# packagist.org
+# repo.packagist.org
+# rubygems.org
+# crates.io
+# static.crates.io
+
+# -----------------------------------------------------------------------------
+# Git hosting
+# -----------------------------------------------------------------------------
+# github.com
+# *.github.com
+# gitlab.com
+# *.gitlab.com
+# bitbucket.org
+# *.bitbucket.org
+
+# -----------------------------------------------------------------------------
+# CDN & common resources
+# -----------------------------------------------------------------------------
+# cdn.jsdelivr.net
+# cdnjs.cloudflare.com
+# unpkg.com
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+# docs.python.org
+# developer.mozilla.org
+# reactjs.org
+# vuejs.org
+# nodejs.org
+
+# -----------------------------------------------------------------------------
+# Custom entries (user-defined)
+# -----------------------------------------------------------------------------
+# Add your custom allowed domains below

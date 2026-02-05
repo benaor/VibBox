@@ -1,0 +1,115 @@
+# =============================================================================
+# VibBox - Base Dockerfile
+# =============================================================================
+#
+# Description:
+#   Image Docker de base pour VibBox. Contient :
+#   - Debian comme système de base
+#   - Python avec uv (gestionnaire de packages rapide)
+#   - Mistral Vibe CLI pour le coding assisté
+#   - Outils de développement essentiels
+#   - Configuration shell (zsh avec oh-my-zsh)
+#
+# Usage:
+#   docker build -f Dockerfile.base -t vibebox:base .
+#
+# Supported architectures: amd64, arm64
+#
+# =============================================================================
+
+FROM debian:bookworm-slim
+
+# Build arguments for user mapping
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
+# =============================================================================
+# LAYER 1: SYSTÈME
+# Install system dependencies and development tools
+# =============================================================================
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# Install all system packages in a single layer to minimize image size
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core utilities
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    gnupg2 \
+    # Build tools
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    # Python
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    # Shell and CLI tools
+    zsh \
+    fzf \
+    ripgrep \
+    jq \
+    tree \
+    less \
+    man-db \
+    # System utilities
+    openssh-client \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# LAYER 2: USER
+# Create non-root user with matching host UID/GID for volume permissions
+# =============================================================================
+
+# Create vibe group and user with host UID/GID
+RUN groupadd --gid ${HOST_GID} vibe || true \
+    && useradd --uid ${HOST_UID} --gid ${HOST_GID} --shell /usr/bin/zsh --create-home vibe \
+    && usermod -aG sudo vibe \
+    && echo "vibe ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/vibe \
+    && mkdir -p /home/vibe/.local/bin \
+    && chown -R vibe:vibe /home/vibe
+
+# =============================================================================
+# LAYER 3: UV + VIBE
+# Install uv package manager and Mistral Vibe CLI
+# =============================================================================
+
+USER vibe
+
+# Install uv (fast Python package manager from Astral)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH
+ENV PATH="/home/vibe/.local/bin:$PATH"
+
+# Install Mistral Vibe CLI as a uv tool
+RUN uv tool install mistral-vibe
+
+# Verify vibe installation
+RUN vibe --version || echo "vibe installed"
+
+# =============================================================================
+# LAYER 4: SHELL
+# Configure zsh with oh-my-zsh
+# =============================================================================
+
+# Install oh-my-zsh (unattended mode)
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# Copy zsh configuration template
+COPY templates/zshrc.template /home/vibe/.zshrc
+
+# =============================================================================
+# LAYER 5: FINALISATION
+# Set working directory and entrypoint
+# =============================================================================
+
+WORKDIR /workspace
+
+ENTRYPOINT ["vibe"]
