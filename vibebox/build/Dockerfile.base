@@ -68,10 +68,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # =============================================================================
 
 # Create vibe group and user with host UID/GID
-RUN groupadd --gid ${HOST_GID} vibe || true \
+# Note: The group may already exist with a different name, so we handle that gracefully
+RUN if getent group ${HOST_GID} >/dev/null 2>&1; then \
+        echo "Group with GID ${HOST_GID} already exists, using it"; \
+    else \
+        groupadd --gid ${HOST_GID} vibe; \
+    fi \
     && useradd --uid ${HOST_UID} --gid ${HOST_GID} --shell /usr/bin/zsh --create-home vibe \
     && usermod -aG sudo vibe \
-    && echo "vibe ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/vibe \
+    # Security: Limit sudo to apt package management only (required for profiles)
+    && echo "vibe ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt" >> /etc/sudoers.d/vibe \
+    && chmod 0440 /etc/sudoers.d/vibe \
     && mkdir -p /home/vibe/.local/bin \
     && chown -R vibe:vibe /home/vibe
 

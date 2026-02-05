@@ -109,3 +109,62 @@ detect_arch() {
 
     echo "$VIBEBOX_ARCH"
 }
+
+# safe_remove_project_data <path>
+#   Safely removes a project data directory with validation
+#   Ensures the path is within VIBEBOX_DIR to prevent accidental deletion
+safe_remove_project_data() {
+    local target="$1"
+
+    # Validation 1: Must be non-empty
+    if [[ -z "$target" ]]; then
+        log_error "Cannot remove: empty path"
+        return 1
+    fi
+
+    # Validation 2: VIBEBOX_DIR must be set
+    if [[ -z "${VIBEBOX_DIR:-}" ]]; then
+        log_error "Cannot remove: VIBEBOX_DIR is not set"
+        return 1
+    fi
+
+    # Validation 3: Path must not be HOME or root
+    local resolved_target
+    resolved_target="$(cd "$(dirname "$target")" 2>/dev/null && pwd)/$(basename "$target")" || {
+        log_error "Cannot resolve path: $target"
+        return 1
+    }
+
+    if [[ "$resolved_target" == "$HOME" ]] || [[ "$resolved_target" == "/" ]]; then
+        log_error "Refusing to remove dangerous path: $resolved_target"
+        return 1
+    fi
+
+    # Validation 4: Must be under VIBEBOX_DIR
+    local resolved_vibebox
+    resolved_vibebox="$(cd "$VIBEBOX_DIR" 2>/dev/null && pwd)" || {
+        log_error "Cannot resolve VIBEBOX_DIR: $VIBEBOX_DIR"
+        return 1
+    }
+
+    if [[ "$resolved_target" != "$resolved_vibebox"/* ]]; then
+        log_error "Refusing to remove path outside VibBox directory: $target"
+        return 1
+    fi
+
+    # Validation 5: Must not be VIBEBOX_DIR itself
+    if [[ "$resolved_target" == "$resolved_vibebox" ]]; then
+        log_error "Refusing to remove VibBox root directory"
+        return 1
+    fi
+
+    # Validation 6: Path must exist (not an error if it doesn't)
+    if [[ ! -e "$target" ]]; then
+        log_warn "Path does not exist: $target"
+        return 0
+    fi
+
+    # Safe to remove
+    rm -rf "$target"
+    return 0
+}

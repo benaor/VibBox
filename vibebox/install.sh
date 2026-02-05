@@ -6,7 +6,7 @@
 # Install VibBox on macOS or Linux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/TODO_GITHUB_USER/vibebox/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/benaor/VibBox/main/vibebox/install.sh | bash
 #
 # Or download and run:
 #   ./install.sh
@@ -19,7 +19,7 @@ set -euo pipefail
 # Configuration
 # -----------------------------------------------------------------------------
 
-VIBEBOX_REPO="https://github.com/TODO_GITHUB_USER/vibebox.git"
+VIBEBOX_REPO="https://github.com/benaor/VibBox.git"
 VIBEBOX_DIR="$HOME/.vibebox"
 VIBEBOX_SOURCE_DIR="$VIBEBOX_DIR/source"
 VIBEBOX_BIN="$HOME/.local/bin/vibebox"

@@ -74,7 +74,8 @@ profile_status() {
 install_profile() {
     local profile_name="$1"
     local profile_script="$VIBEBOX_SOURCE_DIR/build/profiles/${profile_name}.sh"
-    local temp_container="vibebox-profile-$$"
+    # Use profile name, PID and timestamp for unique container name (prevents race conditions)
+    local temp_container="vibebox-profile-${profile_name}-$$-$(date +%s)"
 
     # Check if profile exists
     if [[ ! -f "$profile_script" ]]; then
