@@ -1,0 +1,43 @@
+# =============================================================================
+# VibBox - Base Dockerfile
+# =============================================================================
+#
+# Description:
+#   Image Docker de base pour VibBox. Contient :
+#   - Debian comme système de base
+#   - Python avec uv (gestionnaire de packages rapide)
+#   - Outils de développement essentiels (git, curl, etc.)
+#   - Configuration shell (zsh avec oh-my-zsh)
+#   - Vibe coding tools
+#
+# Usage futur:
+#   docker build -f Dockerfile.base -t vibebox:base .
+#
+# =============================================================================
+
+# TODO: Définir l'image de base
+# FROM debian:bookworm-slim
+
+# TODO: Installer les dépendances système
+# - build-essential, git, curl, wget
+# - zsh, tmux
+# - ca-certificates
+
+# TODO: Installer Python et uv
+# - Python 3.11+
+# - uv (https://github.com/astral-sh/uv)
+
+# TODO: Installer les outils "vibe"
+# - Configuration à définir
+
+# TODO: Configurer l'utilisateur non-root
+# - Créer utilisateur "vibe"
+# - Configurer les permissions
+
+# TODO: Configurer le shell
+# - Installer oh-my-zsh
+# - Copier la configuration zsh
+
+# TODO: Définir le workdir et l'entrypoint
+# WORKDIR /workspace
+# ENTRYPOINT ["/bin/zsh"]
