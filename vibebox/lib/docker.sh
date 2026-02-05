@@ -106,8 +106,11 @@ image_exists() {
 # build_image - Build the VibBox Docker image for the current project
 build_image() {
     log_info "Building VibBox image for project '$PROJECT_NAME'..."
+    log_info "This may take a few minutes on first run..."
 
     local dockerfile="$VIBEBOX_SOURCE_DIR/build/Dockerfile.base"
+    local start_time
+    start_time=$(date +%s)
 
     if [[ ! -f "$dockerfile" ]]; then
         log_error "Dockerfile not found: $dockerfile"
@@ -120,7 +123,10 @@ build_image() {
         -t "$IMAGE_NAME" \
         -f "$dockerfile" \
         "$VIBEBOX_SOURCE_DIR"; then
-        log_ok "Image '$IMAGE_NAME' built successfully"
+        local end_time
+        end_time=$(date +%s)
+        local duration=$((end_time - start_time))
+        log_ok "Image '$IMAGE_NAME' built successfully (${duration}s)"
     else
         log_error "Failed to build image '$IMAGE_NAME'"
         exit 1

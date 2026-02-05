@@ -80,6 +80,7 @@ cmd_help() {
     echo "    profile <name>   Install a profile (typescript, php)"
     echo "    profile status   Show installed profiles"
     echo "    install <pkg>    Install apt packages in the image"
+    echo "    update           Update VibBox to latest version"
     echo "    help             Show this help"
     echo ""
     echo -e "${COLOR_CYAN}ENVIRONMENT:${COLOR_NC}"
@@ -238,6 +239,44 @@ ensure_image() {
     fi
 }
 
+# cmd_update - Update VibBox to latest version
+cmd_update() {
+    log_info "Updating VibBox..."
+    if cd "$VIBEBOX_SOURCE_DIR" && git pull --quiet; then
+        log_ok "VibBox updated to latest version"
+    else
+        log_error "Failed to update VibBox"
+        return 1
+    fi
+}
+
+# check_for_updates - Check if updates are available (non-blocking)
+check_for_updates() {
+    local last_check_file="$VIBEBOX_DIR/.last_update_check"
+
+    # Skip if checked within last 24 hours
+    if [[ -f "$last_check_file" ]]; then
+        local last_check
+        last_check=$(stat -c %Y "$last_check_file" 2>/dev/null || stat -f %m "$last_check_file" 2>/dev/null)
+        local now
+        now=$(date +%s)
+        local diff=$((now - last_check))
+        if [[ $diff -lt 86400 ]]; then
+            return
+        fi
+    fi
+
+    # Check for updates in background
+    (
+        cd "$VIBEBOX_SOURCE_DIR" 2>/dev/null || exit 0
+        if git fetch --dry-run 2>&1 | grep -q .; then
+            log_info "A new version of VibBox is available. Run 'vibebox update'"
+        fi
+        mkdir -p "$VIBEBOX_DIR"
+        touch "$last_check_file"
+    ) &
+}
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -250,6 +289,9 @@ main() {
     # Initialize project vars (needed for most commands)
     init_project_vars
 
+    # Check for updates in background (non-blocking)
+    check_for_updates
+
     # Parse command
     local cmd="${1:-}"
 
@@ -261,6 +303,10 @@ main() {
             ;;
         profiles)
             list_profiles
+            return
+            ;;
+        update)
+            cmd_update
             return
             ;;
     esac
