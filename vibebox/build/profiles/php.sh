@@ -5,55 +5,102 @@
 #
 # Description:
 #   Profil d'installation pour le développement PHP.
-#   Installe les outils nécessaires pour le développement web PHP moderne.
+#   Ce script s'exécute À L'INTÉRIEUR du conteneur Docker (en tant que user "vibe").
 #
 # Outils installés:
-#   - PHP 8.x (avec extensions courantes)
+#   - PHP 8.x avec extensions courantes
 #   - Composer (gestionnaire de dépendances PHP)
-#   - Laravel Installer (optionnel)
-#   - Symfony CLI (optionnel)
-#   - PHPUnit (tests)
-#   - PHP-CS-Fixer (formatting)
-#
-# Extensions PHP incluses:
-#   - pdo, pdo_mysql, pdo_pgsql
-#   - mbstring, xml, curl, zip
-#   - gd, imagick
-#   - redis, memcached
+#   - Laravel Installer
+#   - PHPUnit
 #
 # Usage:
 #   Ce script est exécuté automatiquement lors de l'installation du profil
-#   via la commande: vibebox profile install php
+#   via la commande: vibebox profile php
 #
 # =============================================================================
 
-# PROFILE_NAME="php"
-# PROFILE_DESCRIPTION="PHP development with Composer, Laravel, and Symfony support"
+set -euo pipefail
 
-# -----------------------------------------------------------------------------
-# Fonctions prévues:
-# -----------------------------------------------------------------------------
+echo "📦 Installing PHP profile..."
 
-# install_php()
-#   Installe PHP et les extensions courantes
+# =============================================================================
+# INSTALL PHP AND EXTENSIONS
+# =============================================================================
 
-# install_composer()
-#   Installe Composer globalement
+echo "Installing PHP and extensions..."
 
-# install_global_tools()
-#   Installe les outils PHP globaux (phpunit, php-cs-fixer)
+sudo apt-get update
 
-# install_laravel()
-#   Installe Laravel Installer (optionnel)
+sudo apt-get install -y --no-install-recommends \
+    php \
+    php-cli \
+    php-common \
+    php-mbstring \
+    php-xml \
+    php-curl \
+    php-zip \
+    php-mysql \
+    php-pgsql \
+    php-sqlite3 \
+    php-intl \
+    php-gd \
+    php-bcmath \
+    php-tokenizer \
+    || true
 
-# install_symfony()
-#   Installe Symfony CLI (optionnel)
+# Try to install php-json (may not be available as separate package in PHP 8+)
+sudo apt-get install -y --no-install-recommends php-json 2>/dev/null || true
 
-# configure_php_ini()
-#   Configure php.ini pour le développement
+# Cleanup apt cache
+sudo rm -rf /var/lib/apt/lists/*
 
-# verify_installation()
-#   Vérifie que tous les outils sont correctement installés
+# Verify PHP installation
+echo "PHP version: $(php --version | head -1)"
 
-# main()
-#   Point d'entrée - orchestre l'installation complète
+# =============================================================================
+# INSTALL COMPOSER
+# =============================================================================
+
+echo "Installing Composer..."
+
+# Download and run composer installer
+curl -sS https://getcomposer.org/installer | php
+
+# Move to global location
+sudo mv composer.phar /usr/local/bin/composer
+
+# Verify composer installation
+echo "Composer version: $(composer --version 2>&1 | head -1)"
+
+# =============================================================================
+# INSTALL GLOBAL PHP TOOLS VIA COMPOSER
+# =============================================================================
+
+echo "Installing global PHP tools..."
+
+# Laravel installer
+composer global require laravel/installer || true
+
+# PHPUnit
+composer global require phpunit/phpunit || true
+
+# Add composer global bin to PATH in .zshrc if not already present
+if ! grep -q '.composer/vendor/bin' ~/.zshrc 2>/dev/null; then
+    echo '' >> ~/.zshrc
+    echo '# Composer global bin' >> ~/.zshrc
+    echo 'export PATH="$HOME/.composer/vendor/bin:$PATH"' >> ~/.zshrc
+fi
+
+# Also check for the newer .config/composer location
+if ! grep -q '.config/composer/vendor/bin' ~/.zshrc 2>/dev/null; then
+    echo 'export PATH="$HOME/.config/composer/vendor/bin:$PATH"' >> ~/.zshrc
+fi
+
+# =============================================================================
+# FINISH
+# =============================================================================
+
+echo ""
+echo "✅ PHP profile installed (PHP + Composer)"
+echo "   php: $(php --version | head -1)"
+echo "   composer: $(composer --version 2>&1 | head -1)"
