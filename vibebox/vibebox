@@ -86,6 +86,12 @@ cmd_help() {
     echo "    MISTRAL_API_KEY  Your Mistral API key (required for API usage)"
     echo "    OLLAMA_HOST      Ollama server URL (optional, for local models)"
     echo ""
+    echo -e "${COLOR_CYAN}OLLAMA (local models):${COLOR_NC}"
+    echo "    If Ollama is running on your host, VibBox auto-detects it."
+    echo "    Inside the container, configure vibe to use it:"
+    echo "      vibe --provider ollama --model devstral-small:24b"
+    echo "    Or set it in ~/.vibe/config.toml"
+    echo ""
 }
 
 # cmd_info - Display project and system information
@@ -131,10 +137,12 @@ cmd_info() {
     else
         echo -e "    MISTRAL_API_KEY: ${COLOR_RED}Not set${COLOR_NC}"
     fi
-    if [[ -n "${OLLAMA_HOST:-}" ]]; then
-        echo "    OLLAMA_HOST:     $OLLAMA_HOST"
+
+    # Detect Ollama silently
+    if detect_ollama 2>/dev/null; then
+        echo -e "    Ollama:          ${COLOR_GREEN}Detected at ${OLLAMA_URL}${COLOR_NC}"
     else
-        echo "    OLLAMA_HOST:     Not set"
+        echo "    Ollama:          Not detected"
     fi
     echo ""
 }
